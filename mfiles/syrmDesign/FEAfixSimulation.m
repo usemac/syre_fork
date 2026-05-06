@@ -228,7 +228,22 @@ else
 end
 
 if flagPM || strcmp(geo.RotType,'EESM')
-    
+    % no-load FEMM run to extract magnet-only flux linkage fM
+    perNL = per;
+    perNL.overload = 0;
+    RQnl = RQ;
+    if strcmp(geo.axisType,'PM')
+        RQnl(end) = 0;        % PM convention: PMs along +d
+    else
+        RQnl(end) = 90;       % SR convention: PMs along -q
+    end
+    [~,~,~,out_nl,~] = FEMMfitness(RQnl,geo,perNL,mat,eval_type,filemot);
+    nFEA = nFEA+1;
+    if strcmp(geo.axisType,'PM')
+        OUT.fM = out_nl.fd;
+    else
+        OUT.fM = -out_nl.fq;
+    end
 else
     OUT.fM = 0;
 end
