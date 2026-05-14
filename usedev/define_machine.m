@@ -22,45 +22,48 @@ function dataSet = define_machine(saveAs)
 % ---------------------------------------------------------------------
 % ELEMENTAL DESIGN PARAMETERS  — edit this block to define your machine
 % ---------------------------------------------------------------------
+% Default values mirror motorExamples/syreDefaultMotor.mat — a Seg-rotor
+% V-IPM modeled on the Tesla Model 3 traction motor. Override what you
+% need; everything else falls back to the baseline.
 M = struct();
 
 % --- Topology ---------------------------------------------------------
-M.RotType    = 'Circular';   % 'Circular' | 'Seg' | 'Fluid' | 'SPM' | 'Spoke-type' | 'EESM' | 'IM'
+M.RotType    = 'Seg';        % 'Circular' | 'Seg' | 'Fluid' | 'SPM' | 'Spoke-type' | 'EESM' | 'IM'
                               %   ('ISeg' and 'Vtype' are deprecated — use 'Seg' instead)
-M.p          = 8;            % pole pairs
-M.q          = 3;            % stator slots per pole per phase
+M.p          = 3;            % pole pairs (6 poles)
+M.q          = 3;            % stator slots per pole per phase (54 slots total)
 M.n3ph       = 1;            % number of independent 3-phase sets (NaN -> 5-phase)
-M.nlay       = 3;            % rotor flux-barrier layers (forced to 1 for SPM/Spoke-type)
+M.nlay       = 2;            % rotor flux-barrier layers (forced to 1 for SPM/Spoke-type)
 
 % --- Main dimensions [mm] / [rpm] ------------------------------------
-M.R          = 67.5;         % stator outer radius
-M.l          = 90;           % stack length
-M.g          = 0.4;          % airgap thickness
-M.Ar         = 21;           % shaft radius
-M.nmax       = 12000;        % overspeed [rpm]
+M.R          = 112.5;        % stator outer radius
+M.l          = 134;          % stack length
+M.g          = 0.7;          % airgap thickness
+M.Ar         = 34.75;        % shaft radius
+M.nmax       = 18100;        % overspeed [rpm]
 M.pont0      = 0.4;          % min mechanical tolerance / rib thickness [mm]
 
 % --- Operating point --------------------------------------------------
-M.Vdc        = 565;          % DC bus voltage [V]
-M.nbase      = 1500;         % evaluation / base speed [rpm]
-M.kj         = 3000;         % thermal loading [W/m^2 of stator outer surface]
-M.J          = 7;            % slot current density [Apk/mm^2]
-M.tempcu     = 130;          % target copper temperature [degC]
-M.temphous   = 50;           % housing temperature [degC]
-M.tempPM     = 60;           % PM temperature for FEA postproc [degC]
+M.Vdc        = 400;          % DC bus voltage [V] (not in baseline — drive-side field)
+M.nbase      = 4000;         % evaluation / base speed [rpm]
+M.kj         = 170987;       % thermal loading [W/m^2 of stator outer surface] (aggressive cooling)
+M.J          = 36;           % slot current density [Apk/mm^2] (peak)
+M.tempcu     = 120;          % target copper temperature [degC]
+M.temphous   = 70;           % housing temperature [degC]
+M.tempPM     = 80;           % PM temperature for FEA postproc [degC]
 
 % --- Winding ----------------------------------------------------------
-M.Ns         = 100;          % turns in series per phase
-M.kcu        = 0.4;          % slot fill factor (net Cu / slot area)
+M.Ns         = 21;           % turns in series per phase
+M.kcu        = 0.38;         % slot fill factor (net Cu / slot area)
 M.kracc      = 1;            % pitch-shortening factor (1 = full pitch)
 
 % --- Materials --------------------------------------------------------
 % Names must match entries in materialLibrary/{iron,layer,conductor,sleeve}_material.mat
-M.StatorMaterial      = 'M600-50A';
-M.RotorMaterial       = 'M600-50A';
-M.FluxBarrierMaterial = 'Air';        % 'Air' for pure SyR; PM grade name for PM-SyR/IPM/SPM
+M.StatorMaterial      = 'M270-35A';
+M.RotorMaterial       = 'M270-35A';
+M.FluxBarrierMaterial = 'BMN-52UH';   % 'Air' for pure SyR; PM grade name for PM-SyR/IPM/SPM
 M.SlotMaterial        = 'Copper';
-M.ShaftMaterial       = 'M600-50A';
+M.ShaftMaterial       = 'Air';        % non-magnetic shaft
 
 % --- Magnetic loading targets (analytical (x,b) design) --------------
 M.Bfe        = 1.5;          % yoke flux density target [T]
@@ -69,19 +72,19 @@ M.ky         = 1;            % stator yoke factor (ly / ly_ideal)
 M.kyr        = 1;            % rotor yoke factor (lyr / lys)
 
 % --- Rotor barrier shape (length must equal nlay) --------------------
-M.ALPHApu        = [0.5 0.5 0.5];     % barrier angular positions [pu]
-M.HCpu           = [0.33 0.33 0.34];  % barrier widths [pu]
-M.DepthOfBarrier = zeros(1, M.nlay);  % radial offset / dx per layer
+M.ALPHApu        = [0.50, 0.30];     % barrier angular positions [pu]
+M.HCpu           = [0.35, 0.25];     % barrier widths [pu]
+M.DepthOfBarrier = zeros(1, M.nlay); % radial offset / dx per layer
 
 % --- PM (relevant when FluxBarrierMaterial != 'Air') -----------------
-M.Br         = 0;                % PM remanence at design temperature [T]
+M.Br         = 1.45;             % PM remanence at design temperature [T]
 M.kPM        = 1;                % PM filling factor (per-unit barrier area filled by PM)
-M.PMdimPU    = ones(2, M.nlay);  % per-unit PM dimensions per layer (rows: outer/inner segments)
+M.PMdimPU    = [0, 0; 1, 1];     % per-unit PM dimensions per layer (rows: outer/inner segments)
 
 % --- (x,b) design plane sweep ----------------------------------------
-M.xRange     = [0.5 0.8];    % rotor/stator split sweep range
-M.bRange     = [0.3 0.7];    % p.u. magnetic loading sweep range
-M.FEAfixN    = 5;            % FEAfix correction points: 0,1,4,5,8,16
+M.xRange     = [0.5 0.7];    % rotor/stator split sweep range
+M.bRange     = [0.4 0.6];    % p.u. magnetic loading sweep range
+M.FEAfixN    = 16;           % FEAfix correction points: 0,1,4,5,8,16
 
 % ---------------------------------------------------------------------
 % APPLY TO BASELINE dataSet
@@ -151,11 +154,34 @@ dataSet.ALPHApu        = padOrTrim(M.ALPHApu,        nl, 1/nl);
 dataSet.HCpu           = padOrTrim(M.HCpu,           nl, 1/nl);
 dataSet.DepthOfBarrier = padOrTrim(M.DepthOfBarrier, nl, 0);
 
+% Resize baseline per-layer arrays the user didn't override. The baseline
+% syreDefaultMotor.mat carries these at its own nlay; if M.nlay differs,
+% data0 iterates 1:geo.nlay over each and would index out-of-bounds.
+% Replicate the first existing element when extending (matches back_compatibility.m).
+perLayerFields = { ...
+    'betaPMshape', 'RadRibEdit', 'TanRibEdit', 'CentralShrink', 'RadShiftInner', ...
+    'RotorFilletTan1', 'RotorFilletTan2', 'RotorFilletIn', 'RotorFilletOut'};
+for k = 1:numel(perLayerFields)
+    fn = perLayerFields{k};
+    if isfield(dataSet, fn) && ~isempty(dataSet.(fn))
+        dataSet.(fn) = padOrTrim(dataSet.(fn), nl, dataSet.(fn)(1));
+    end
+end
+
 % PM
 dataSet.Br      = M.Br;
 dataSet.kPM     = M.kPM;
 dataSet.PMtemp  = M.tempPM;
 dataSet.PMdimPU = M.PMdimPU;
+
+% Resize PMdim and PMNc from baseline to match current nlay
+nl = dataSet.NumOfLayers;
+if size(dataSet.PMdim, 2) ~= nl
+    dataSet.PMdim = repmat(dataSet.PMdim(:,1), 1, nl);
+end
+if size(dataSet.PMNc, 2) ~= nl
+    dataSet.PMNc = repmat(dataSet.PMNc(:,1), 1, nl);
+end
 
 % (x,b) sweep + FEAfix
 dataSet.xRange  = M.xRange;
